@@ -1,3 +1,10 @@
+keel-lnmp-19.0 (2) keel; urgency=low
+
+  * The plan names no webmin-phpini: no archive carries it, and the first
+    build stopped at fab-install. 19.0-1 was never built.
+
+ -- KeelLinux maintainers <admin@keellinux.org>  Fri, 16 Oct 2026 07:10:00 +0000
+
 keel-lnmp-19.0 (1) keel; urgency=low
 
   * The first release of Keel LNMP (handbook decision 0059): a layer on
