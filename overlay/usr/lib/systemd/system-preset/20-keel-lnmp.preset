@@ -1,0 +1,10 @@
+# keel-lnmp: the socket units of mariadb-server stay off (keel-mariadb#29).
+#
+# mariadb.socket has ListenStream=3306, which systemd binds as [::]:3306, on
+# every address of the machine, uplink included, and with it the server's
+# bind-address has no effect. mariadb-extra.socket also starts the server
+# with sockets from systemd. The first boot of systemd enables every unit
+# that no preset disables, and pct create of Proxmox VE makes the first
+# start of a container a first boot. conf.d/main also masks both.
+disable mariadb.socket
+disable mariadb-extra.socket

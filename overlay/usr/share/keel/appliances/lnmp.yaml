@@ -1,0 +1,38 @@
+manifest_version: 1
+kind: appliance
+name: lnmp
+title: Keel LNMP
+summary: nginx, MariaDB and PHP-FPM on Keel Web, alone or as a replicated pair (0059)
+base: web
+# The overlays are Core's and Web's, inherited with their states: this
+# layer adds none. The database server is the layer's own process, as on
+# the keel-mariadb layer, whose manifest this image does not carry: its
+# base is core, and two manifests that no other is built on would leave
+# keel inspect unable to name the appliance (0059, point 3).
+processes:
+  - name: mariadb
+    unit: mariadb.service
+    # ::1 and 127.0.0.1 as the layer ships it; on a pair database.server.listen
+    # adds the node's overlay address and the VIP, so 3306 is a mesh port: on
+    # the WireGuard interface in cloud advanced, never on the uplink.
+    listen: [{port: 3306, protocol: tcp, expose: mesh}]
+  - name: php-fpm
+    # Debian's PHP-FPM of trixie, on its unix socket only (the pool www,
+    # /run/php/php8.4-fpm.sock, and /run/php/php-fpm.sock by Debian's
+    # alternative): no TCP port, so nothing for the firewall.
+    unit: php8.4-fpm.service
+checks:
+  - {name: mariadb, process: mariadb, type: protocol, protocol: mysql,
+     address: loopback, port: 3306, on_failure: restart}
+secrets:
+  - name: db_password
+    description: The MariaDB administrative account, set at the first boot from DB_PASS
+    generate: allowed
+    # the mysql database replicates with the rest: a pair holds one value
+    shared: true
+options:
+  - name: db_user
+    type: string
+    default: admin
+    # a name that needs no quoting in a GRANT, the rule of lib/mariadb.sh
+    pattern: '^[A-Za-z_][A-Za-z0-9_-]*$'

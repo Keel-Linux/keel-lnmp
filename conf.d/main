@@ -1,0 +1,119 @@
+#!/bin/bash -ex
+# Keel LNMP: PHP-FPM and MariaDB on Keel Web (handbook decision 0059).
+#
+# common's conf/mysql, conf/php and conf/php-fpm have already run
+# (COMMON_CONF of mk/turnkey/mysql.mk and php-fpm.mk). What is left is
+# what the keel-mariadb layer adds to the server, copied here because this
+# image does not carry keel-mariadb's manifest (0059, point 3), and what
+# the stack itself needs.
+#
+# 1. The administrative account of the database, 'admin', created unable
+#    to authenticate: a password chosen here would be the same on every
+#    machine built from the layer. firstboot.d/35mysqlpass sets it from
+#    DB_PASS. The hash below is not the hash of any string.
+# 2. The socket units of mariadb-server masked (keel-mariadb#29).
+# 3. Webmin's PHP module pointed at PHP-FPM's php.ini: common's conf/php
+#    points it at Apache's, which does not exist here.
+# 4. PHP-FPM enabled, the project packages upgraded and proved, the
+#    manifest validated by keel on this tree, and the image checked.
+
+MARIADB_ADMIN_USER="admin"
+# No input hashes to this value, so the account authenticates nothing.
+MARIADB_INVALID_HASH='*THISISNOTAVALIDPASSWORDTHATCANBEUSEDHERE'
+# One account per host: MariaDB matches a socket connection against
+# 'localhost' and a TCP connection against the literal address.
+MARIADB_ADMIN_HOSTS="localhost ::1 127.0.0.1"
+
+service mysql start
+
+for host in $MARIADB_ADMIN_HOSTS; do
+    mysql <<SQL
+CREATE USER IF NOT EXISTS '$MARIADB_ADMIN_USER'@'$host'
+    IDENTIFIED VIA mysql_native_password USING '$MARIADB_INVALID_HASH';
+GRANT ALL PRIVILEGES ON *.* TO '$MARIADB_ADMIN_USER'@'$host' WITH GRANT OPTION;
+SQL
+done
+mysql -e "FLUSH PRIVILEGES"
+for host in $MARIADB_ADMIN_HOSTS; do
+    mysql -N -B -e "SELECT COUNT(*) FROM mysql.global_priv \
+        WHERE User='$MARIADB_ADMIN_USER' AND Host='$host'" | grep -qx 1
+done
+
+service mysql stop
+
+# The bind addresses of the overlay are what the server must come up with.
+grep -qx 'bind-address = ::1,127.0.0.1' /etc/mysql/mariadb.conf.d/99-keel-bind.cnf
+
+# The socket units of mariadb-server: a mask is the link to /dev/null that
+# systemctl mask writes, read from the tree, because the systemctl of the
+# build chroot (common's systemd-chroot wrapper) has no is-enabled.
+for unit in mariadb.socket mariadb-extra.socket; do
+    rm -f "/etc/systemd/system/sockets.target.wants/$unit"
+    systemctl mask "$unit"
+    [ "$(readlink "/etc/systemd/system/$unit")" = /dev/null ]
+done
+
+# No socket unit of the tree can listen on a wildcard address for 3306.
+/usr/local/lib/keel-build/keel-socket-wildcard / 3306
+
+# The database module of the panel; the plan asks for it.
+dpkg-query -W -f '${Status}' webmin-mysql | grep -qx 'install ok installed'
+
+# PHP-FPM starts at boot: the check page and every PHP site need it. The
+# link is the one systemctl enable writes, made here for the same reason
+# as the mask above.
+PHP_V=$(php --version | sed -En 's|^PHP ([0-9]+\.[0-9]+).*|\1|p')
+[ "$PHP_V" = 8.4 ]
+mkdir -p /etc/systemd/system/multi-user.target.wants
+ln -sfn "/usr/lib/systemd/system/php$PHP_V-fpm.service" \
+    "/etc/systemd/system/multi-user.target.wants/php$PHP_V-fpm.service"
+
+# Webmin's PHP module: PHP-FPM's php.ini first, then the command line's.
+TAB="$(printf '\t')"
+mkdir -p /etc/webmin/phpini
+printf 'php_ini=/etc/php/%s/fpm/php.ini=Configuration for PHP-FPM%s/etc/php/%s/cli/php.ini=Configuration for command-line scripts\n' \
+    "$PHP_V" "$TAB" "$PHP_V" > /etc/webmin/phpini/config
+
+# fab-plan-resolve keeps a package the parent layer already carries at the
+# parent's version, so the project's packages are upgraded here, from the
+# Keel archive the parent layer names. The overlay of this layer ships
+# /etc/confconsole/services.txt, a conffile of confconsole: keep it
+# without asking, since the conf script runs with stdin closed.
+export DEBIAN_FRONTEND=noninteractive
+apt-get update --error-on=any
+apt-get install -y --only-upgrade \
+    -o Dpkg::Options::=--force-confdef \
+    -o Dpkg::Options::=--force-confold \
+    inithooks confconsole keel
+
+# A half configured package keeps its new version, so check the state too.
+[[ $(dpkg-query -W -f '${Status}\n' inithooks confconsole keel \
+    | grep -c '^install ok installed$') -eq 3 ]]
+
+# Each of the three at the version the Keel archive offers as its
+# candidate, from the suite of the track this build reads.
+/usr/local/lib/keel-build/keel-project-packages inithooks confconsole keel
+
+# The appliance manifest, validated and resolved along web and core on this
+# very tree, so a manifest the booted machine would refuse fails the build.
+keel manifest validate lnmp
+
+# firstboot.d/35mysqlpass needs inithooks' lib/console.sh.
+[ -f /usr/lib/inithooks/lib/console.sh ]
+
+# The image as a first boot of LNMP starts from: nothing of Apache, the
+# sockets masked, PHP-FPM enabled, the route, the page and the manifest in
+# place, no database layer's manifest, no credential file.
+/usr/local/lib/keel-build/keel-lnmp-image-check
+rm -rf /usr/local/lib/keel-build
+dpkg-query -W -f '${Package} ${Version} ${Status}\n' inithooks confconsole keel
+
+# No build time package source may reach the image, and the apt lists are
+# not shipped.
+rm -rf /var/lib/apt/lists/*
+if grep -rlsE 'trixie-staging|/srv/keel-apt|l=Keel Linux staging|keel-staging' /etc/apt/sources.list \
+    /etc/apt/sources.list.d /etc/apt/preferences /etc/apt/preferences.d /etc/apt/keyrings; then
+    echo "the apt files above name the build host's staging archive" >&2
+    exit 1
+fi
+[ ! -e /usr/local/lib/keel-build ]

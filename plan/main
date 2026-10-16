@@ -1,0 +1,22 @@
+#include <turnkey/base>
+
+/* MariaDB, python3-pymysql (bin/mysqlconf.py of common's mysql overlay),
+   mysqltuner and webmin-mysql, the module that puts the database in the
+   panel core already carries. */
+#include <turnkey/mysql>
+
+/* the command line client: the first boot hooks talk to the database over
+   the local socket and over loopback */
+mariadb-client
+
+/* PHP-FPM of Debian 13 (8.4) and its MariaDB module. Not the php
+   metapackage: it can pull libapache2-mod-php, and Keel has no Apache
+   (handbook decision 0059). */
+php-fpm
+php-mysql
+webmin-phpini
+
+/* project packages, from the Keel archive (archive.keellinux.org) */
+inithooks
+confconsole
+keel

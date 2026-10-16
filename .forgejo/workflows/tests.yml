@@ -1,0 +1,128 @@
+# Tests of the keel-lnmp layer recipe (handbook decisions 0006 and 0059).
+# Each call of a reusable workflow has a runs-on line, because Forgejo runs
+# a called workflow on the runner of the caller (decision 0056).
+#
+#   tests:     the project shell under bats and kcov (tests/coverage.sh),
+#              and the suites that measure no shell
+#   package:   a change that the layer ships needs a changelog entry
+#   stack:     nginx, PHP-FPM and MariaDB on a booted trixie container,
+#              the check page read back, and keel's validator on the
+#              manifest and the specs
+#   appliance: the boot test of the published layer
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    # tests/coverage.sh measures seven shell files (COVERAGE.md). The
+    # lowest is 35mysqlpass at 96.00: the one uncovered line is the process
+    # substitution that kcov attributes to no line. The threshold is only
+    # ever raised (decision 0006). Check "tests / tests".
+    runs-on: keel-host
+    uses: keel-linux/.github/.github/workflows/test-shell.yml@main
+    with:
+      threshold: 95
+  package:
+    # Only on a pull request: require-changelog compares the two commits of
+    # the pull request. A skipped job satisfies a required status. What
+    # bt-layer records in the manifest is the top entry of ./changelog, so
+    # that is the file a change which ships has to bump. Check
+    # "tests / package".
+    if: github.event_name == 'pull_request'
+    runs-on: keel-host
+    uses: keel-linux/.github/.github/workflows/require-changelog.yml@main
+    with:
+      changelog: changelog
+      # keel/ holds example specs, which the layer does not ship
+      exempt: '^(tests/|docs/|\.github/|\.forgejo/|keel/|evidence/|README|COVERAGE\.md|LICENSE|\.gitignore)'
+  stack:
+    # The stack on a machine, in a Debian trixie system container with its
+    # own systemd (lxc-trixie.yml). The default server is a stand-in for
+    # keel-web 0.3.0 (Keel-Linux/keel-web#12): it includes
+    # /etc/nginx/keel-default.d/*.conf the way keel-web's default site
+    # does, with a self-signed certificate. keel, keel-core, keel-web and
+    # common are fetched at the commits pinned below for keel's validator
+    # (tests/manifest.bats), from their GitHub mirrors, which the job
+    # container reaches (git.pop.coop did not answer from it). Check
+    # "tests / stack".
+    runs-on: keel-lxc
+    uses: keel-linux/.github/.github/workflows/lxc-trixie.yml@main
+    with:
+      systemd: true
+      timeout: 30
+      run: |
+        KEEL_COMMIT=384afa6bfea7990159f827b93f4ad2f01f51f676
+        KEEL_CORE_COMMIT=432be9fafd3afd091690fcce3433d4721b5b83f6
+        KEEL_WEB_COMMIT=493438a993a2c46ad9bba58881f56e889a049298
+        COMMON_COMMIT=cff023f0b40ddc5c24baf92b25ce1f233f348f94
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update -qq
+        apt-get install -y -qq --no-install-recommends \
+          ca-certificates git curl bats iproute2 openssl python3-yaml \
+          nginx php-fpm php-mysql mariadb-server mariadb-client
+        fetch() {
+          git init -q "/tmp/src/$1"
+          git -C "/tmp/src/$1" fetch -q --depth 1 "https://github.com/Keel-Linux/$1.git" "$2"
+          git -C "/tmp/src/$1" checkout -q FETCH_HEAD
+        }
+        fetch keel "$KEEL_COMMIT"
+        fetch keel-core "$KEEL_CORE_COMMIT"
+        fetch keel-web "$KEEL_WEB_COMMIT"
+        fetch common "$COMMON_COMMIT"
+        KEEL_SRC=/tmp/src/keel KEEL_MANIFEST_SOURCES=/tmp/src bats tests/manifest.bats
+        # the overlay files of the stack, where the layer puts them
+        install -D -m 0644 overlay/etc/mysql/mariadb.conf.d/99-keel-bind.cnf \
+          /etc/mysql/mariadb.conf.d/99-keel-bind.cnf
+        install -D -m 0644 overlay/etc/nginx/keel-default.d/50-keel-lnmp.conf \
+          /etc/nginx/keel-default.d/50-keel-lnmp.conf
+        install -D -m 0644 overlay/usr/share/keel-lnmp/www/keel-check/index.php \
+          /usr/share/keel-lnmp/www/keel-check/index.php
+        # the machine's certificate, as keel-host-keys makes it at the first boot
+        umask 077
+        openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=$(hostname)" \
+          -keyout /etc/ssl/private/cert.key -out /etc/ssl/private/cert.crt 2>/dev/null
+        umask 022
+        # the stand-in for keel-web 0.3.0's default site
+        printf '%s\n' 'server {' \
+          '  listen [::]:80 default_server;' '  listen 0.0.0.0:80 default_server;' \
+          '  listen [::]:443 ssl default_server;' '  listen 0.0.0.0:443 ssl default_server;' \
+          '  server_name _;' '  server_tokens off;' \
+          '  ssl_certificate /etc/ssl/private/cert.crt;' \
+          '  ssl_certificate_key /etc/ssl/private/cert.key;' \
+          '  root /var/www/html;' \
+          '  include /etc/nginx/keel-default.d/*.conf;' \
+          '}' > /etc/nginx/sites-available/keel-default
+        rm -f /etc/nginx/sites-enabled/default
+        ln -s /etc/nginx/sites-available/keel-default /etc/nginx/sites-enabled/keel-default
+        # the binary log on, as a pair has it, so tests/stack.bats can prove
+        # that the hook writes nothing to it
+        printf '[mysqld]\nlog_bin = mysql-bin\nserver_id = 1\n' \
+          > /etc/mysql/mariadb.conf.d/60-stack-test-binlog.cnf
+        systemctl restart mariadb.service php8.4-fpm.service nginx.service
+        # firstboot.d/40lnmp-check, as inithooks runs it
+        printf 'INITHOOKS_CONF=/etc/inithooks.conf\nINITHOOKS_PATH=/usr/lib/inithooks\n' \
+          > /etc/default/inithooks
+        overlay/usr/lib/inithooks/firstboot.d/40lnmp-check
+        LNMP_STACK_TEST=1 bats tests/stack.bats
+  appliance:
+    # The boot test (tests/boot-test.sh) of the lnmp layer as the mirror
+    # publishes it, on the self-hosted runner. The layer has never been
+    # published: allow_unpublished says so here, and the workflow makes it
+    # an error once the mirror answers for lnmp. The evidence for a branch
+    # is its built image on the real platform (tests/README.md). Check
+    # "tests / appliance".
+    if: vars.KEEL_LXC_RUNNER == 'true'
+    runs-on: keel-lxc
+    uses: keel-linux/.github/.github/workflows/test-appliance.yml@main
+    with:
+      appliance: lnmp
+      parent: web
+      allow_unpublished: true
+      timeout: 60

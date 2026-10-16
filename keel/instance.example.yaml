@@ -1,0 +1,57 @@
+# Example instance spec of Keel LNMP (format: docs/spec.md of the keel
+# repository; handbook decision 0059): a standalone LNMP in a simple
+# installation, MariaDB on the loopback, nginx serving the default site and
+# the check page /keel-check/. instance.pair.example.yaml is the primary of
+# a replicated pair.
+#
+# Overlays are every overlay of the chain: Core's five and Web's three.
+version: 1
+
+instance:
+  hostname: lnmp
+  fqdn: lnmp.example.org
+
+network:
+  managed_by: host
+  interfaces:
+    eth0:
+      ipv6:
+        method: auto
+
+tls:
+  acme:
+    enabled: false
+
+appliance:
+  name: lnmp
+installation:
+  mode: simple
+overlays:
+  installer: enabled
+  wireguard: disabled
+  etcd: disabled
+  crowdsec: disabled
+  vip: disabled
+  nginx: enabled
+  coraza: disabled
+  anubis: disabled
+
+secrets:
+  root_password:
+    file: /etc/keel/secrets/root_password
+  # renders to DB_PASS, which firstboot.d/35mysqlpass sets the account from
+  db_password:
+    file: /etc/keel/secrets/db_password
+
+app:
+  options:
+    db_user: admin
+
+hub:
+  api_key: skip
+
+security:
+  alerts: skip
+  updates_at_first_boot: skip
+
+first_login_wizard: false
