@@ -101,6 +101,10 @@ jobs:
           '}' > /etc/nginx/sites-available/keel-default
         rm -f /etc/nginx/sites-enabled/default
         ln -s /etc/nginx/sites-available/keel-default /etc/nginx/sites-enabled/keel-default
+        # the binary log on, as a pair has it, so tests/stack.bats can prove
+        # that the hook writes nothing to it
+        printf '[mysqld]\nlog_bin = mysql-bin\nserver_id = 1\n' \
+          > /etc/mysql/mariadb.conf.d/60-stack-test-binlog.cnf
         systemctl restart mariadb.service php8.4-fpm.service nginx.service
         # firstboot.d/40lnmp-check, as inithooks runs it
         printf 'INITHOOKS_CONF=/etc/inithooks.conf\nINITHOOKS_PATH=/usr/lib/inithooks\n' \
