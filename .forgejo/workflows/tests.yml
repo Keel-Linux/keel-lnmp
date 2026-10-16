@@ -49,7 +49,9 @@ jobs:
     # /etc/nginx/keel-default.d/*.conf the way keel-web's default site
     # does, with a self-signed certificate. keel, keel-core, keel-web and
     # common are fetched at the commits pinned below for keel's validator
-    # (tests/manifest.bats). Check "tests / stack".
+    # (tests/manifest.bats), from their GitHub mirrors, which the job
+    # container reaches (git.pop.coop did not answer from it). Check
+    # "tests / stack".
     runs-on: keel-lxc
     uses: keel-linux/.github/.github/workflows/lxc-trixie.yml@main
     with:
@@ -67,7 +69,7 @@ jobs:
           nginx php-fpm php-mysql mariadb-server mariadb-client
         fetch() {
           git init -q "/tmp/src/$1"
-          git -C "/tmp/src/$1" fetch -q --depth 1 "https://git.pop.coop/Keel-Linux/$1.git" "$2"
+          git -C "/tmp/src/$1" fetch -q --depth 1 "https://github.com/Keel-Linux/$1.git" "$2"
           git -C "/tmp/src/$1" checkout -q FETCH_HEAD
         }
         fetch keel "$KEEL_COMMIT"
