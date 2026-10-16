@@ -2,8 +2,15 @@ keel-lnmp-19.0 (3) keel; urgency=low
 
   * The pair example declares the node's overlay address in
     database.server.listen. With the loopbacks alone the primary did not
-    answer its replica on hw12-br1. Documentation only: the image is
-    the same as 19.0-2.
+    answer its replica on hw12-br1.
+  * The image carries keel 0.23.39 from trixie-testing. A paired replica
+    gets the primary's Anubis key by itself (Keel-Linux/common#56). A
+    cut MariaDB primary acknowledges no write that the new primary does
+    not get (Keel-Linux/keel#186, #195), and keeps no dump thread that
+    hangs the server later (Keel-Linux/keel#193). A rejoined or reseeded
+    replica takes the VIP again by itself (Keel-Linux/keel#192). etcd
+    starts at the third join with no drift (Keel-Linux/keel#188), and
+    the VIP overlay waits for etcd with no drift (Keel-Linux/keel#106).
 
  -- KeelLinux maintainers <admin@keellinux.org>  Fri, 16 Oct 2026 07:55:00 +0000
 
