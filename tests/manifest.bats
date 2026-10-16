@@ -81,3 +81,16 @@ print(eval(sys.argv[2]))' "$MANIFEST" "$1"
         [ "$status" -eq 0 ]
     done
 }
+
+# On a pair the replica replicates from the primary's overlay address, and
+# keel binds the declared listen plus the VIP only (keel docs/replication.md).
+# A listen of the loopbacks alone left the primary deaf to its replica
+# (hw12-br1, 2026-10-16), so the example names the overlay address too.
+@test "manifest: the pair example's listen holds the node's overlay address" {
+    run python3 -c 'import sys, yaml
+d = yaml.safe_load(open(sys.argv[1]))
+own = d["network"]["overlay"]["wireguard"]["address"].split("/")[0]
+listen = d["database"]["server"].get("listen")
+sys.exit(0 if listen is None or own in [str(a) for a in listen] else 1)' "$REPO/keel/instance.pair.example.yaml"
+    [ "$status" -eq 0 ]
+}
