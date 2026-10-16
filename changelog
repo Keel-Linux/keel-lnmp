@@ -1,0 +1,12 @@
+keel-lnmp-19.0 (1) keel; urgency=low
+
+  * The first release of Keel LNMP (handbook decision 0059): a layer on
+    Keel Web with PHP-FPM 8.4 and MariaDB 11.8 from Debian 13. The
+    appliance manifest lnmp.yaml (base web) declares MariaDB on 3306, a
+    mesh port, PHP-FPM on its unix socket, the db_password secret and the
+    db_user option, so a spec may declare the pair of 0049. The first boot
+    hooks of the database come from keel-mariadb. The check page at
+    /keel-check/ reads from MariaDB as www-data over the local socket,
+    with SELECT on keel_check only.
+
+ -- KeelLinux maintainers <admin@keellinux.org>  Fri, 16 Oct 2026 08:00:00 +0000

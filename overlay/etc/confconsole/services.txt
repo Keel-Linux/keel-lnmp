@@ -1,0 +1,9 @@
+Web:        https://[$ipaddr6]
+Check page: https://[$ipaddr6]/keel-check/
+Webmin:     https://[$ipaddr6]:12321
+SSH/SFTP:   root@$ipaddr6 (port 22)
+
+Web:        https://$ipaddr
+Check page: https://$ipaddr/keel-check/
+Webmin:     https://$ipaddr:12321
+SSH/SFTP:   root@$ipaddr (port 22)

@@ -1,0 +1,69 @@
+#!/bin/bash -e
+# Give the check page of Keel LNMP its database account and the row it
+# reads (handbook decision 0059, point 6). Runs after 35mysqlpass.
+#
+# - The account is www-data on localhost, the user of PHP-FPM, which the
+#   server knows by its socket (unix_socket): no password exists for it.
+#   It may SELECT on keel_check and nothing else.
+# - The row is this host's name and the time of its first boot, in
+#   keel_check.boot. A second run keeps the first row.
+# - Every statement runs with sql_log_bin = 0. A write at the first boot
+#   makes no transaction of its own in the binary log, so a node that
+#   becomes a replica later holds no GTID that the primary does not have.
+#   A replica gets the row with the copy of the primary that seeds it.
+# - A server that is read-only is a replica already: nothing is written.
+# - A spec that declares this node a replica gets the account only. The
+#   database comes from the primary; one made here would be a local
+#   database that keel's seed refuses to replace without a confirmation.
+
+INITHOOKS_DEFAULT="${INITHOOKS_DEFAULT:-/etc/default/inithooks}"
+# shellcheck source=/etc/default/inithooks
+source "$INITHOOKS_DEFAULT"
+
+LNMP_SPEC="${LNMP_SPEC:-/etc/keel/instance.yaml}"
+LNMP_SERVICE="${LNMP_SERVICE:-mariadb}"
+LNMP_WAIT_TRIES="${LNMP_WAIT_TRIES:-30}"
+LNMP_SLEEP="${LNMP_SLEEP:-sleep 1}"
+
+say() { echo "[40lnmp-check] $*"; }
+fatal() { echo "fatal [40lnmp-check]: $*" >&2; exit 1; }
+
+# the role database.server.role of the spec declares, or nothing
+spec_role() {
+    [ -r "$LNMP_SPEC" ] || return 0
+    python3 - "$LNMP_SPEC" <<'PY' 2>/dev/null || true
+import sys, yaml
+spec = yaml.safe_load(open(sys.argv[1])) or {}
+print(((spec.get("database") or {}).get("server") or {}).get("role") or "")
+PY
+}
+
+systemctl start "$LNMP_SERVICE.service"
+tries=0
+until mysqladmin ping >/dev/null 2>&1; do
+    tries=$((tries + 1))
+    [ "$tries" -lt "$LNMP_WAIT_TRIES" ] || fatal "$LNMP_SERVICE did not answer after $LNMP_WAIT_TRIES tries"
+    $LNMP_SLEEP
+done
+
+read_only=$(mysql --batch --skip-column-names -e 'SELECT @@global.read_only') \
+    || fatal "cannot read @@global.read_only from $LNMP_SERVICE"
+if [ "$read_only" != 0 ]; then
+    say "the server is read-only (a replica): the check database comes from the primary, nothing is written"
+    exit 0
+fi
+
+sql="SET SESSION sql_log_bin = 0;
+CREATE USER IF NOT EXISTS 'www-data'@'localhost' IDENTIFIED VIA unix_socket;
+GRANT SELECT ON keel_check.* TO 'www-data'@'localhost';"
+if [ "$(spec_role)" = replica ]; then
+    what="the account of the check page is ready; the spec declares a replica, so the check database comes from the primary"
+else
+    sql="$sql
+CREATE DATABASE IF NOT EXISTS keel_check;
+CREATE TABLE IF NOT EXISTS keel_check.boot (host VARCHAR(255) NOT NULL PRIMARY KEY, written_at DATETIME NOT NULL);
+INSERT INTO keel_check.boot (host, written_at) VALUES (@@hostname, NOW()) ON DUPLICATE KEY UPDATE written_at = written_at;"
+    what="check database ready: keel_check.boot holds the row of this host, www-data reads it"
+fi
+printf '%s\n' "$sql" | mysql --batch || fatal "could not write the check database"
+say "$what"
