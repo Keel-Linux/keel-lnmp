@@ -1,3 +1,12 @@
+keel-lnmp-19.0 (3) keel; urgency=low
+
+  * The pair example declares the node's overlay address in
+    database.server.listen. With the loopbacks alone the primary did not
+    answer its replica on hw12-br1. Documentation only: the image is
+    the same as 19.0-2.
+
+ -- KeelLinux maintainers <admin@keellinux.org>  Fri, 16 Oct 2026 07:55:00 +0000
+
 keel-lnmp-19.0 (2) keel; urgency=low
 
   * The plan names no webmin-phpini: no archive carries it, and the first

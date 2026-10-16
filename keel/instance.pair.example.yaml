@@ -58,7 +58,10 @@ database:
     # the role chosen at installation; after the first claim the VIP's
     # holder is the primary (0049)
     role: primary
+    # the replica replicates from this node's overlay address, and keel
+    # binds what is declared here plus the VIP (keel docs/replication.md)
     listen:
+      - "fd2a:9c41:7e03::1"
       - "::1"
       - 127.0.0.1
 
