@@ -14,7 +14,6 @@ mariadb-client
    (handbook decision 0059). */
 php-fpm
 php-mysql
-webmin-phpini
 
 /* project packages, from the Keel archive (archive.keellinux.org) */
 inithooks

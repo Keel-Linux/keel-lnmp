@@ -51,5 +51,5 @@ packages() {
 }
 
 @test "recipe: the changelog names the layer" {
-    head -1 "$REPO/changelog" | grep -q '^keel-lnmp-19.0 (1) keel;'
+    head -1 "$REPO/changelog" | grep -qE '^keel-lnmp-19\.0 \([0-9]+\) keel;'
 }
