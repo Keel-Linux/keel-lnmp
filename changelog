@@ -1,3 +1,14 @@
+keel-lnmp-19.0 (4) keel; urgency=low
+
+  * The image carries keel 0.23.42 from trixie-testing. A MariaDB replica
+    that the seed built takes the binary log history of its primary. So
+    a first primary that took no write during a cut comes back and
+    joins again with no reseed (Keel-Linux/keel#202). A join does not
+    say that etcd may not run when another step failed
+    (Keel-Linux/keel#198).
+
+ -- KeelLinux maintainers <admin@keellinux.org>  Fri, 16 Oct 2026 20:30:00 +0000
+
 keel-lnmp-19.0 (3) keel; urgency=low
 
   * The pair example declares the node's overlay address in
