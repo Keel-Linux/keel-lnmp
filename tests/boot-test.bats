@@ -289,3 +289,13 @@ never() { return 1; }
     [ "$status" -eq 1 ]
     [[ $output == *"failed with exit 127"* ]]
 }
+
+# boot-test.sh runs `keel spec apply` on the host. The spec names the
+# appliance, so keel reads the appliance manifests under its root. The
+# host (the runner of the image gate, a CI container) does not hold the
+# lnmp manifest: the layer ships it, so it is in the assembled rootfs.
+@test "boot-test.sh: keel spec apply reads the appliance manifests of the rootfs" {
+    run grep -A2 'keel spec apply' "$BATS_TEST_DIRNAME/boot-test.sh"
+    [ "$status" -eq 0 ]
+    [[ $output == *'--root "$BT_ROOTFS"'* ]]
+}
