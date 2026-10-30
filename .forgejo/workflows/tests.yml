@@ -113,9 +113,9 @@ jobs:
         LNMP_STACK_TEST=1 bats tests/stack.bats
   appliance:
     # The boot test (tests/boot-test.sh) of the lnmp layer as the mirror
-    # publishes it, on the self-hosted runner. The layer has never been
-    # published: allow_unpublished says so here, and the workflow makes it
-    # an error once the mirror answers for lnmp. The evidence for a branch
+    # publishes it, on the self-hosted runner. The lnmp layer is published
+    # (stable 1, 2026-10-26), so allow_unpublished is gone: the workflow
+    # makes it an error once the mirror answers. The evidence for a branch
     # is its built image on the real platform (tests/README.md). Check
     # "tests / appliance".
     if: vars.KEEL_LXC_RUNNER == 'true'
@@ -124,5 +124,4 @@ jobs:
     with:
       appliance: lnmp
       parent: web
-      allow_unpublished: true
       timeout: 60
