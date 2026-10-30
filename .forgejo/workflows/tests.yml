@@ -58,10 +58,10 @@ jobs:
       systemd: true
       timeout: 30
       run: |
-        KEEL_COMMIT=384afa6bfea7990159f827b93f4ad2f01f51f676
-        KEEL_CORE_COMMIT=432be9fafd3afd091690fcce3433d4721b5b83f6
-        KEEL_WEB_COMMIT=493438a993a2c46ad9bba58881f56e889a049298
-        COMMON_COMMIT=cff023f0b40ddc5c24baf92b25ce1f233f348f94
+        KEEL_COMMIT=d8c4125c0feb195d3612b788fbe44f257f961f59
+        KEEL_CORE_COMMIT=378da7a6a2d76d70847ae0ca05fc9e89060b08da
+        KEEL_WEB_COMMIT=7d41bc77975b71fb6f5ae92dc959bdb4ead8cfbb
+        COMMON_COMMIT=22f5aa8d3c49bfa16be7c9fa6656eeefd2c03bce
         export DEBIAN_FRONTEND=noninteractive
         apt-get update -qq
         apt-get install -y -qq --no-install-recommends \
