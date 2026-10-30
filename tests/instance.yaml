@@ -30,7 +30,7 @@ tls:
     enabled: false
 
 # The appliance of this layer, in a simple installation, with every overlay
-# of the chain written out (Core's five and Web's three): keel diff then
+# of the chain written out (Core's five, Web's three and Syncthing): keel diff then
 # compares each with systemd.
 appliance:
   name: lnmp
@@ -45,6 +45,7 @@ overlays:
   nginx: enabled
   coraza: disabled
   anubis: disabled
+  syncthing: disabled
 
 secrets:
   root_password:
