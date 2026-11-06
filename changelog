@@ -1,3 +1,17 @@
+keel-lnmp-19.0 (6) keel; urgency=low
+
+  * firstboot.d/35mysqlpass: a first boot nobody can answer, with no
+    declared db_password, records the question for keel-init
+    (console_deferred of inithooks), so the fence stays up and the first
+    login starts keel-init. Before, it only logged that it asked nothing.
+    With the root password declared and this one not, nothing kept the
+    fence up: the MariaDB account admin stayed unable to authenticate, and
+    the login said nothing (found while the commissioning contract of
+    decision 0075 was written, 2026-11-06). An inithooks without
+    console_deferred gets the old line.
+
+ -- KeelLinux maintainers <admin@keellinux.org>  Fri, 06 Nov 2026 03:30:00 +0000
+
 keel-lnmp-19.0 (5) keel; urgency=low
 
   * Stable 1, the first stable release (handbook docs/releases/stable-1-plan.md).
