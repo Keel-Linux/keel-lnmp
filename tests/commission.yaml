@@ -153,10 +153,10 @@ cloud:
     - {id: files-sent, at: primary, run: 'k=$(cat /var/lib/keel/filesync/apikey); curl -s -H "X-API-Key: $k" http://127.0.0.1:8384/rest/config/folders', match: 'sendonly'}
     - {id: promote, at: replica, run: 'keel vip promote'}
     - {id: promoted-holder, at: replica, run: 'keel vip status', match: 'carried here: yes'}
-    # the old primary replicates from the new one before it takes the VIP
-    # back: a return promote before that can leave no writable server
-    # (keel 0.23.84, fixed in 0.23.85)
-    - {id: old-primary-follows, at: primary, run: 'for i in $(seq 60); do mysql -e "SHOW SLAVE STATUS\\G" | grep -q "Slave_SQL_Running: Yes" && echo follows && exit 0; sleep 5; done; exit 1', match: '^follows$'}
+    # the old primary replicates from the new one and has applied all it
+    # received before it takes the VIP back: a return promote before that
+    # can leave no writable server or split the data (keel 0.23.84)
+    - {id: old-primary-follows, at: primary, run: 'for i in $(seq 60); do s=$(mysql -e "SHOW SLAVE STATUS\\G"); grep -q "Slave_SQL_Running: Yes" <<< "$s" && grep -q "Seconds_Behind_Master: 0" <<< "$s" && grep -q "has read all relay log" <<< "$s" && echo caught-up && exit 0; sleep 5; done; exit 1', match: '^caught-up$'}
     - {id: return, at: primary, run: 'keel vip promote'}
     - {id: returned-holder, at: primary, run: 'keel vip status', match: 'carried here: yes'}
     - {id: probe-dropped, at: primary, run: 'mysql -e "DROP DATABASE kc_probe"'}
