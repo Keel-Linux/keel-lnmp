@@ -118,6 +118,9 @@ screenshots:
     url: /
     login: {user_field: 'input[name=user]', user: root, password_field: 'input[name=pass]', secret: root, submit: 'button[type=submit]'}
     wait: 8
+    # the shot waits for the dashboard, which comes after the page
+    # (VMs of BR2, 2026-11-06)
+    text: System hostname
 
 # The cloud modes (decision 0076): cloud simple is a primary on BR1 and a
 # replica on BR2. The prompts are the titles of the confconsole screens,
@@ -137,6 +140,11 @@ cloud:
   # that holds the VIP, keel 0.23.83)
   checks:
     - {id: vip-holder, at: all, run: 'keel vip status', match: 'carried here: yes', count: 1}
+    # the replica holds the primary's data, made before the pair formed:
+    # the rows of keel_check.boot are the primary's on both nodes (keel
+    # 0.23.84 seeds a replica at its first pairing; before it the replica
+    # kept its own first-boot row, BR1 and BR2, 2026-11-06)
+    - {id: seeded, at: 'primary,replica', run: 'mysql -N -e "SELECT host FROM keel_check.boot ORDER BY host"', same: true}
     - {id: row-written, at: primary, run: 'mysql -e "CREATE DATABASE IF NOT EXISTS kc_probe; CREATE TABLE IF NOT EXISTS kc_probe.t (v INT); INSERT INTO kc_probe.t VALUES (42)"'}
     - {id: row-replicated, at: replica, run: 'sleep 5; mysql -N -e "SELECT v FROM kc_probe.t"', match: '^42$'}
     - {id: replica-read-only, at: replica, run: 'mysql -N -e "SELECT @@global.read_only"', match: '^1$'}
@@ -145,6 +153,10 @@ cloud:
     - {id: files-sent, at: primary, run: 'k=$(cat /var/lib/keel/filesync/apikey); curl -s -H "X-API-Key: $k" http://127.0.0.1:8384/rest/config/folders', match: 'sendonly'}
     - {id: promote, at: replica, run: 'keel vip promote'}
     - {id: promoted-holder, at: replica, run: 'keel vip status', match: 'carried here: yes'}
+    # the old primary replicates from the new one before it takes the VIP
+    # back: a return promote before that can leave no writable server
+    # (keel 0.23.84, fixed in 0.23.85)
+    - {id: old-primary-follows, at: primary, run: 'for i in $(seq 60); do mysql -e "SHOW SLAVE STATUS\\G" | grep -q "Slave_SQL_Running: Yes" && echo follows && exit 0; sleep 5; done; exit 1', match: '^follows$'}
     - {id: return, at: primary, run: 'keel vip promote'}
     - {id: returned-holder, at: primary, run: 'keel vip status', match: 'carried here: yes'}
     - {id: probe-dropped, at: primary, run: 'mysql -e "DROP DATABASE kc_probe"'}
