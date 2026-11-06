@@ -51,6 +51,9 @@ overlays:
   nginx: enabled
   coraza: enabled
   anubis: enabled
+  # the site files follow the primary (0050); keel 0.23.83 refuses a spec
+  # that leaves out an overlay of the chain
+  syncthing: enabled
 
 database:
   server:

@@ -4,7 +4,7 @@
 # the check page /keel-check/. instance.pair.example.yaml is the primary of
 # a replicated pair.
 #
-# Overlays are every overlay of the chain: Core's five and Web's three.
+# Overlays are every overlay of the chain: Core's five and Web's four.
 version: 1
 
 instance:
@@ -35,6 +35,9 @@ overlays:
   nginx: enabled
   coraza: disabled
   anubis: disabled
+  # Web's fourth overlay: keel 0.23.83 refuses a spec that leaves out an
+  # overlay of the chain
+  syncthing: disabled
 
 secrets:
   root_password:
