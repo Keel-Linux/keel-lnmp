@@ -7,7 +7,7 @@ Measured with kcov over the bats suites by `tests/coverage.sh`
 | --- | --- |
 | `tests/lib/boot-test-lib.sh` | 100.00 percent (109 of 109) |
 | `overlay/usr/lib/inithooks/lib/mariadb.sh` | 100.00 percent (43 of 43) |
-| `overlay/usr/lib/inithooks/firstboot.d/35mysqlpass` | 96.00 percent (24 of 25): the process substitution, which kcov gives no line |
+| `overlay/usr/lib/inithooks/firstboot.d/35mysqlpass` | 96.43 percent (27 of 28): the process substitution, which kcov gives no line |
 | `overlay/usr/lib/inithooks/firstboot.d/40lnmp-check` | 100.00 percent (25 of 25) |
 | `bin/keel-project-packages` | 100.00 percent (32 of 32) |
 | `bin/keel-socket-wildcard` | 100.00 percent (48 of 48) |

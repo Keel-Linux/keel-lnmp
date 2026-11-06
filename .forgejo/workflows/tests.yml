@@ -22,7 +22,7 @@ permissions:
 jobs:
   tests:
     # tests/coverage.sh measures seven shell files (COVERAGE.md). The
-    # lowest is 35mysqlpass at 96.00: the one uncovered line is the process
+    # lowest is 35mysqlpass at 96.43: the one uncovered line is the process
     # substitution that kcov attributes to no line. The threshold is only
     # ever raised (decision 0006). Check "tests / tests".
     runs-on: keel-host
