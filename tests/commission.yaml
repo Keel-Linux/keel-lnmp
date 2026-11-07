@@ -138,7 +138,17 @@ cloud:
   waits: [Waiting for the nodes]
   # the proofs across the pair, in order ("carried here: yes" on the node
   # that holds the VIP, keel 0.23.83)
+  # modes: a check runs only in the cloud modes it names; one without
+  # modes runs in both (keel-commission of Keel-Linux/.github)
   checks:
+    - {id: mesh-peer, at: all, run: 'keel mesh status', match: 'peers: 2', count: 3, modes: [cloud_advanced]}
+    - id: mesh-ping
+      at: all
+      run: 'for a in $(wg show wg0 allowed-ips | awk "{print \\$2}" | cut -d/ -f1); do ping -6 -c 3 -W 5 "$a" | grep -q " 0% packet loss" || exit 1; done; echo all-answer'
+      match: '^all-answer$'
+      count: 3
+      modes: [cloud_advanced]
+    - {id: voters, at: all, run: 'keel mesh status --json | grep -o "\"healthy_voters\": *[0-9]*"', match: ': *3$', count: 3, modes: [cloud_advanced]}
     - {id: vip-holder, at: all, run: 'keel vip status', match: 'carried here: yes', count: 1}
     # the replica holds the primary's data, made before the pair formed:
     # the rows of keel_check.boot are the primary's on both nodes (keel
@@ -151,6 +161,7 @@ cloud:
     # Syncthing replicates the state paths of the manifests (0050)
     - {id: files-follow, at: replica, run: 'k=$(cat /var/lib/keel/filesync/apikey); curl -s -H "X-API-Key: $k" http://127.0.0.1:8384/rest/config/folders', match: 'receiveonly'}
     - {id: files-sent, at: primary, run: 'k=$(cat /var/lib/keel/filesync/apikey); curl -s -H "X-API-Key: $k" http://127.0.0.1:8384/rest/config/folders', match: 'sendonly'}
+    - {id: witness-no-data, at: witness, run: 'test ! -e /usr/sbin/nginx && test ! -e /usr/sbin/mariadbd && echo nodata', match: '^nodata$', modes: [cloud_advanced]}
     - {id: promote, at: replica, run: 'keel vip promote'}
     - {id: promoted-holder, at: replica, run: 'keel vip status', match: 'carried here: yes'}
     # the old primary replicates from the new one and has applied all it
@@ -162,7 +173,7 @@ cloud:
     - {id: probe-dropped, at: primary, run: 'mysql -e "DROP DATABASE kc_probe"'}
     # no unit failed on either node: the cloud modes start overlays (anubis,
     # coraza, crowdsec, syncthing) that services: does not name
-    - {id: no-failed-units, at: all, run: 'systemctl --failed --no-legend --plain | wc -l', match: '^0$', count: 2}
+    - {id: no-failed-units, at: all, run: 'systemctl --failed --no-legend --plain | wc -l', match: '^0$'}
 nodes:
   - name: primary
     site: br1
@@ -183,3 +194,35 @@ nodes:
       - {id: mode, prompt: Installation mode, keys: 'C{ret}'}
       - {id: role, prompt: Role of this node, keys: 'R{ret}'}
       - {id: join, prompt: Join a mesh, keys: '{invite:1}{ret}'}
+  # cloud advanced (decision 0076): the primary and the Keel Core witness
+  # on BR1, the replica on BR2 while BR3 is down. The names differ from the
+  # nodes of cloud simple: a record names each check NODE:CHECK.
+  - name: adv-primary
+    site: br1
+    mode: cloud_advanced
+    role: primary
+    answers:
+      - {id: mode, prompt: Installation mode, keys: 'CC{ret}'}
+      - {id: role, prompt: Role of this node, keys: 'P{ret}'}
+      - {id: invite, prompt: Invite a node, keys: '{ret}'}
+      - {id: invite2, prompt: Invite a node, keys: '{ret}'}
+  - name: adv-replica
+    site: br2
+    mode: cloud_advanced
+    role: replica
+    answers:
+      - {id: mode, prompt: Installation mode, keys: 'CC{ret}'}
+      - {id: role, prompt: Role of this node, keys: 'R{ret}'}
+      - {id: join, prompt: Join a mesh, keys: '{invite:1}{ret}'}
+  - name: witness
+    site: br1
+    mode: cloud_advanced
+    role: witness
+    # the witness is a node of keel-core, with the contract of keel-core
+    # (a copy of its tests/commission.yaml): the image of keel-core is a new
+    # build for each release, so the run gives it as KC_IMAGE_WITNESS
+    contract: commission-core.yaml
+    answers:
+      - {id: mode, prompt: Installation mode, keys: 'CC{ret}'}
+      - {id: role, prompt: Role of this node, keys: 'W{ret}'}
+      - {id: join, prompt: Join a mesh, keys: '{invite:2}{ret}'}
